@@ -1,0 +1,157 @@
+
+/* Select from order */
+select * from
+(select * from DAT_SalesforceFV_Prd.salesforce.[order] where MC_Active_Flag='a' and status IN ('new','completed','open') and Payment_Status__c='paid') a
+inner join
+(select * from DAT_SalesforceFV_Prd.salesforce.orderitem where MC_Active_Flag='a') b on a.id=b.orderid
+
+
+/* Connect account to campaign */
+select * from 
+(select * from DAT_SalesforceFV_Prd.salesforce.account where MC_Active_Flag='a') a
+inner join
+(select * from DAT_SalesforceFV_Prd.salesforce.[order] where MC_Active_Flag='a' and status IN ('new','completed','open') and Payment_Status__c='paid') b on a.id=b.AccountId 
+inner join
+(select * from DAT_SalesforceFV_Prd.salesforce.orderitem where MC_Active_Flag='a') c on b.id=c.orderid
+left join 
+(SELECT * FROM DAT_SalesforceFV_Prd.salesforce.Order_Product_Campaign) d on c.id=d.Order_Product__c
+
+/* Connect to order product campaign and order campaign */
+select d.Campaign_ID__c, e.Campaign_ID__c from 
+(select * from DAT_SalesforceFV_Prd.salesforce.account where MC_Active_Flag='a') a
+inner join
+(select * from DAT_SalesforceFV_Prd.salesforce.[order] where MC_Active_Flag='a' and status IN ('new','completed','open') and Payment_Status__c='paid') b on a.id=b.AccountId 
+inner join
+(select * from DAT_SalesforceFV_Prd.salesforce.orderitem where MC_Active_Flag='a') c on b.id=c.orderid
+left join 
+(SELECT * FROM DAT_SalesforceFV_Prd.salesforce.Order_Product_Campaign) d on c.id=d.Order_Product__c
+left join 
+(SELECT * FROM DAT_SalesforceFV_Prd.salesforce.Order_campaign) e on b.id=e.Order__c
+
+
+/* Check product classification */
+select distinct d.DW_Product_Code__c from 
+(select * from DAT_SalesforceFV_Prd.salesforce.account where MC_Active_Flag='a') a
+inner join
+(select * from DAT_SalesforceFV_Prd.salesforce.[order] where MC_Active_Flag='a' 
+and status IN ('new','completed','open') 
+and Payment_Status__c='paid'
+and CAST(EffectiveDate AS DATE) > CAST('2017-09-30' AS DATE)
+) b on a.id=b.AccountId 
+inner join
+(select * from DAT_SalesforceFV_Prd.salesforce.orderitem where MC_Active_Flag='a') c on b.id=c.orderid
+left join 
+(select * from DAT_SalesforceFV_Prd.salesforce.Product2 where MC_Active_Flag='a') d on c.Product2Id=d.id
+left join
+(select * from SB_DataLab_Fontem_Prd.datalab.T_LU_Product_Classification) e on d.DW_Product_Code__c=e.DW_Product_Code__c
+where e.DW_Product_Code__c is null
+
+
+/*Connect account to Crowdtwist */
+select * from
+(select * from DAT_SalesforceFV_Prd.salesforce.account where MC_Active_Flag='a') a
+inner join
+(select * from DAT_SalesforceFV_Prd.salesforce.CT_Activities_Data where MC_Active_Flag='a') b on a.id=b.Person_Account__c 
+
+/* Connect market activation to leads*/
+select * from
+(select * from DAT_SalesforceFV_Prd.salesforce.market_activation where mc_active_flag='a') a
+inner join
+(select * from DAT_SalesforceFV_Prd.salesforce.lead where mc_active_flag='a') b on a.lead=b.id
+
+
+/*Connect account to order to items to products*/
+select * from 
+(select * from DAT_SalesforceFV_Prd.salesforce.account where MC_Active_Flag='a') a
+inner join
+(select * from DAT_SalesforceFV_Prd.salesforce.[order] where MC_Active_Flag='a' and status IN ('new','completed','open') and Payment_Status__c='paid') b on a.id=b.AccountId 
+inner join
+(select * from DAT_SalesforceFV_Prd.salesforce.orderitem where MC_Active_Flag='a') c on b.id=c.orderid
+left join 
+(select * from DAT_SalesforceFV_Prd.salesforce.Product2 where MC_Active_Flag='a') d on c.Product2Id=d.id
+
+
+/*Connect order to items to products*/
+select * from
+(select * from DAT_SalesforceFV_Prd.salesforce.[order] where MC_Active_Flag='a' and status IN ('new','completed','open') and Payment_Status__c='paid') a 
+inner join
+(select * from DAT_SalesforceFV_Prd.salesforce.orderitem where MC_Active_Flag='a') b on a.id=b.orderid
+left join 
+(select * from DAT_SalesforceFV_Prd.salesforce.Product2 where MC_Active_Flag='a') c on b.Product2Id=c.id
+
+
+/*Select specific dates*/
+CAST(EffectiveDate AS DATE) > CAST('2017-09-30' AS DATE)
+
+
+/*Rank entries*/
+RANK() OVER (PARTITION BY A.ACCOUNTID ORDER BY A.EARLIEST_DATE, A.CHANNEL) AS RANKING 
+
+
+/*Rank entries, arbitrarily number same entries*/
+ROW_NUMBER() OVER (PARTITION BY A.ACCOUNTID ORDER BY A.EARLIEST_DATE, A.CHANNEL) AS RANKING 
+
+/*FISCAL YEAR*/
+CAST('2017-09-30' AS DATE)
+
+/*Case statements*/
+case when x>=y then 1 else 0 end as x_or_y
+
+CASE 
+	   WHEN lower(c.DW_Product_Code__c) LIKE '%pod%' THEN 1						
+	   WHEN lower(c.DW_Product_Code__c) LIKE '%liquid%' THEN 1
+	   WHEN lower(c.DW_Product_Code__c) LIKE '%tank%' THEN 1
+	   WHEN lower(c.DW_Product_Code__c) LIKE '%disposable%' THEN 1
+	   WHEN lower(c.DW_Product_Code__c) LIKE '%refill%' THEN 1
+	   ELSE 0
+END AS Consumables
+
+/* TIME LAG */
+DATEDIFF(day, Lag(EffectiveDate, 1) OVER(partition BY accountid order by accountid, EffectiveDate), EffectiveDate)
+
+
+/* ADD WEEK AND MONTH NUMBERS */
+,CASE 
+WHEN DATEPART(MONTH, EffectiveDate) < 10 
+THEN CONCAT(YEAR(EffectiveDate),'0', DATEPART(MONTH, EffectiveDate)) 
+ELSE CONCAT(YEAR(EffectiveDate), DATEPART(MONTH, EffectiveDate))  				
+END AS MONTH_DATE
+
+,CASE WHEN DATEPART(ISO_WEEK, cast(EffectiveDate as date)) < 10 
+THEN CONCAT(YEAR(cast(EffectiveDate as date)),'0', DATEPART(ISO_WEEK, cast(EffectiveDate as date))) 
+ELSE CONCAT(YEAR(cast(EffectiveDate as date)), DATEPART(ISO_WEEK, cast(EffectiveDate as date)))  				
+END AS WEEK_DATE
+
+
+
+/*CREATE TABLE*/
+
+select * 
+into SB_DataLab_Fontem_Prd.dbo.<name>
+from ....
+
+/* Transform currency*/
+CASE
+WHEN lower(CurrencyIsoCode)='eur' then 1.0/1.2   * [Order_Gross_Amount__c]  --CONVERT TO POUND STERLING --CHECK FINANCE/SALESFORCE
+WHEN lower(currencyIsoCode)='jpy' then 1.0/170.0   * [Order_Gross_Amount__c]
+WHEN lower(currencyIsoCode)='nok' then 1.0/11.1  * [Order_Gross_Amount__c]
+WHEN lower(currencyIsoCode)='rub' then 1.0/75.0    * [Order_Gross_Amount__c]
+WHEN lower(currencyIsoCode)='usd' then 1.0/1.3   * [Order_Gross_Amount__c]
+ELSE [Order_Gross_Amount__c] end as ORDER_GROSS
+
+
+------------------------------------------------------------------------------------------------------------------------------
+
+
+
+
+
+status IN ('new','completed','open') and Payment_Status__c='paid'
+
+DATETIMEFROMPARTS(YEAR(b.CreatedDate), MONTH(b.CreatedDate), DAY(b.CreatedDate), DATEPART(HOUR, b.CreatedDate),0,0,0)
+
+
+
+
+
+
